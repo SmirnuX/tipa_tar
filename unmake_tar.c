@@ -14,7 +14,8 @@ int main(int argc, char* argv[])
 	FILE* n_file;
 	char block[512];
 	char name[100];
-	int count
+	char a;
+	int count;
 	printf("<\n");
 	//while(1)
 	{
@@ -24,6 +25,9 @@ int main(int argc, char* argv[])
 		unsigned int size;
 		fread(&size, 1, sizeof(int), arc_file);
 		printf("%u\n", size);
+		for (int i=0; i<412-sizeof(int); i++)
+			fread(&a, 1, 1, arc_file);
+		
 		//Создание файла
 		n_file=fopen(name, "wb");
 		//Заполнение файла
@@ -31,14 +35,17 @@ int main(int argc, char* argv[])
 		{
 			//Считываем блок
 			count=fread(block, 1, 512, arc_file);
+			printf("%i/%u - ",i,size);
 			//Записываем блок
 			if ((i+512)>size)
 			{
+				printf("%i\n",size-i);
 				fwrite(block, 1, size-i, n_file);
 				break;
 			}
 			else
 			{
+				printf("512\n");
 				fwrite(block, 1, 512, n_file);
 				i+=512;
 			}
