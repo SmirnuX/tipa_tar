@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -9,8 +10,8 @@
 int unpack_archive(char* fname, char* dir, int depth)	//Распаковывает архив
 {
 	//Откроем архив
-	FILE* i_file=fopen(fname, "rb");
-	if (i_file==NULL)
+	int i_file=open(fname, O_RDONLY);
+	if (i_file==-1)
 	{
 		printf("Файл не создан");
 		return 1;
@@ -20,30 +21,33 @@ int unpack_archive(char* fname, char* dir, int depth)	//Распаковывае
 	if (directory==NULL)
 	{
 		//Создадим папку
-		if (mkdir(dir, S_IRUSR|S_IWUSR|S_IXUSR)==-1)	//TODO - рассмотреть подробнее права доступа
+		if (mkdir(dir, S_IRWXU|S_IRWXU|S_IRWXO)==-1)
 		{
 			printf("Не удается открыть/создать папку %s", dir);
 			return 2;
 		}
 	}
 	closedir(directory);
-	chdir(dir);
+	if (chdir(dir)==-1)
+		perror("");
+		
 	//Начинаем распаковывать файлы
 	unsigned long i_size;
 	int i_depth;
-	char i_name[100];
+	char i_name[MAX_NAME_LENGTH];
 	char a;
-	while(fread(i_name, 1, 100, i_file)==100)
+	while(read(i_file, i_name, MAX_NAME_LENGTH)==MAX_NAME_LENGTH)
 	{
-		fread(&i_size, 1, sizeof(long), i_file);	//Считывание размера файла
-		fread(&i_depth, 1, sizeof(int), i_file);	//Считывание глубины залегания файла
-		for (int i=0; i<412-sizeof(int)-sizeof(long); i++)
+		read(i_file, &i_size, sizeof(long));	//Считывание размера файла
+		read(i_file, &i_depth, sizeof(int));	//Считывание глубины залегания файла
+		for (int i=0; i<BLOCK_SIZE-MAX_NAME_LENGTH-sizeof(int)-sizeof(long); i++)
 		{
-			fread(&a, 1, 1, i_file);	//Считывание заголовочного блока полностью
+			read(i_file, &a, 1);	//Считывание заголовочного блока полностью
 		}
 		//Проверяем, является ли считанный файл собственно файлом или архивом (т.е. вложенной папкой)
 		if (i_depth==depth+1)
 		{
+			printf("Вложенная папка\n");
 			//Распаковка вложенного архива
 			unpack_file(i_file, i_size, ".included_archive");
 			unpack_archive(".included_archive", i_name, depth+1);
@@ -64,83 +68,30 @@ int unpack_archive(char* fname, char* dir, int depth)	//Распаковывае
 }
 
 
-int unpack_file(FILE* i_file, unsigned long i_size, char *true_name)
+int unpack_file(int i_file, unsigned long i_size, char *true_name)
 {
-	char i_block[512];
-	FILE* n_file=fopen(true_name, "wb");	//Создание файла
+	char i_block[BLOCK_SIZE];
+	int n_file=open(true_name, O_CREAT|O_WRONLY, 00666);	//Создание файла
+	if (n_file==-1)
+		printf("ERROOOOOR");
 	printf("Распаковка %s\n", true_name);
 	//Заполнение файла
 	for(int i=0; i<i_size; )
 	{
 		//Считываем блок
-		int count=fread(i_block, 1, 512, i_file);
+		int count=read(i_file, i_block, BLOCK_SIZE);
 		printf("%i/%lu - \n",i,i_size);
 		//Записываем блок
-		if ((i+512)>i_size)
+		if ((i+BLOCK_SIZE)>i_size)
 		{
-			fwrite(i_block, 1, i_size-i, n_file);
+			write(n_file, i_block, i_size-i);	//Дописываем файл
 			break;
 		}
 		else
 		{
-			fwrite(i_block, 1, 512, n_file);
-			i+=512;
+			write(n_file, i_block, BLOCK_SIZE);
+			i+=BLOCK_SIZE;
 		}
 	}
-	fclose(n_file);
+	close(n_file);
 }
-
-/*
-int main(int argc, char* argv[])
-{
-	if (argc<2)
-	{
-		printf("There have to be one argument");
-		return 1;
-	}
-	FILE* arc_file=fopen(argv[1],"rb");
-	FILE* n_file;
-	char block[512];
-	char name[100];
-	char a;
-	int count;
-	printf("<\n");
-	//while(1)
-	{
-		//Считывание заголовка
-		fread(name, 1, 100, arc_file);
-		printf("%s\n", name);
-		unsigned int size;
-		fread(&size, 1, sizeof(int), arc_file);
-		printf("%u\n", size);
-		for (int i=0; i<412-sizeof(int); i++)
-			fread(&a, 1, 1, arc_file);
-		
-		//Создание файла
-		n_file=fopen(name, "wb");
-		//Заполнение файла
-		for(int i=0; i<size; )
-		{
-			//Считываем блок
-			count=fread(block, 1, 512, arc_file);
-			printf("%i/%u - ",i,size);
-			//Записываем блок
-			if ((i+512)>size)
-			{
-				printf("%i\n",size-i);
-				fwrite(block, 1, size-i, n_file);
-				break;
-			}
-			else
-			{
-				printf("512\n");
-				fwrite(block, 1, 512, n_file);
-				i+=512;
-			}
-		}
-	}
-	printf("\n>");
-
-	return 0;
-}
-*/

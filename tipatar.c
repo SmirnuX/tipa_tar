@@ -4,7 +4,9 @@
 #include <sys/stat.h>
 #include "tipatar.h"
 
-const int mode=1;	//Включен ли режим дебага
+
+
+const int mode=1;	//Включен ли режим отладки
 
 int main(int argc, char* argv[])
 {

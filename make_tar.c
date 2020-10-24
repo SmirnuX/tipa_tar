@@ -1,25 +1,30 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "tipatar.h"
 
+#include <errno.h>
+
+
 int make_archive(char* fname, char* dir, int depth)	//Архивирует файлы из папки dir в архив fname уровня depth
 {
-	FILE* o_file=fopen(fname, "wb");
-	if (o_file==NULL)
+	int o_file=open(fname, O_CREAT|O_WRONLY, 00666);
+	if (o_file==-1)
 	{
 		printf("Не получается создать архив: %s", fname);
 		return 1;
 	}
+	perror("");
 	DIR* directory = opendir(dir);
-	if (directory==NULL)
+	/*if (directory==NULL)
 	{
 		printf("Не получается открыть директорию: %s", dir);
 		return 2;
-	}
+	}*/
 	chdir(dir);	//Переходим в эту директорию
 	struct dirent* dir_ptr;
 	struct stat stat_file;
@@ -48,51 +53,56 @@ int make_archive(char* fname, char* dir, int depth)	//Архивирует фа�
 	}
 	chdir("..");	//Возвращаемся на уровень выше
 	closedir(directory);
-	fclose(o_file);
+	if (close(o_file)==-1)
+	{
+		//TODO - ERROR
+	}
 }
 
 
-int add_to_archive(char* fname, FILE* o_file, int depth, char* true_name)	//Добавляет файл fname в архив arc. В заголовочном блоке архива указывается либо true_name, либо fname (если true_name=="")
+int add_to_archive(char* fname, int o_file, int depth, char* true_name)	//Добавляет файл fname в архив arc. В заголовочном блоке архива указывается либо true_name, либо fname (если true_name=="")
 {
 	//Блок заголовка
-	if (strlen(fname)>99)
+	if (strlen(fname)>MAX_NAME_LENGTH)
 	{
 		printf("Слишком длинное название файла\n");
 		return 1;
 	}
 	unsigned long size;
 	struct stat stats;
-	FILE* i_file=fopen(fname, "rb");
-	if (i_file==NULL)
+	int i_file=open(fname, O_RDONLY);
+	if (i_file==-1)
+	{
 		printf("Не удалось открыть файл %s", fname);
+	}
 	lstat(fname, &stats);
 	size=stats.st_size;
 	printf("Размер: %lu\n",size); 
 	if (strcmp("", true_name)==0)
-		fwrite(fname, 1, 100, o_file);	//Запись имени
-	else
-		fwrite(true_name, 1, 100, o_file);	//Запись имени папки
-	fwrite(&size, 1, sizeof(long), o_file);	//Запись размера файла
-	fwrite(&depth, 1, sizeof(int), o_file);	//Запись глубины залегания файла
-	char a=0;
-	for (int i=0; i<412-sizeof(int)-sizeof(long); i++)
 	{
-		fwrite(&a, 1, 1, o_file);	//Заполняем блок из 512 байт до конца
+		if (write(o_file, fname, MAX_NAME_LENGTH)!=MAX_NAME_LENGTH);	//Запись имени
+			perror("");
 	}
+	else
+		write(o_file, true_name, MAX_NAME_LENGTH);	//Запись имени папки
+	write(o_file, &size, sizeof(long));	//Запись размера файла
+	write(o_file, &depth, sizeof(int));	//Запись глубины залегания файла
+	char a=0;
+	for (int i=0; i<BLOCK_SIZE-MAX_NAME_LENGTH-sizeof(int)-sizeof(long); i++)
+		write(o_file, &a, 1);	//Заполняем блок из BLOCK_SIZE байт до конца
 	//Блоки данных
-	char block[512];
-	int count=fread(block, 1, 512, i_file);
-	while(count==512)
+	unsigned char block[BLOCK_SIZE];
+	int count=read(i_file, block, BLOCK_SIZE);
+	while(count==BLOCK_SIZE)
 	{
-		fwrite(block, 1, 512, o_file);
-		count=fread(block, 1, 512, i_file);
+		write(o_file, block, BLOCK_SIZE);
+		count=read(i_file, block, BLOCK_SIZE);
 	}
 	if (count!=0)
 	{
-		fwrite(block, 1, count, o_file);
-		//Дописываем блок до 512 байт
-		for (int i=0; i<512-count; i++)
-			fwrite(&a, 1, 1, o_file);
+		write(o_file, block, count);
+		for (int i=0; i<BLOCK_SIZE-count; i++)	//Дописываем блок до BLOCK_SIZE байт
+			write(o_file, &a, 1);
 	}
 	return 0;
 }
