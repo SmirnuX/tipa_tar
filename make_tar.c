@@ -104,5 +104,6 @@ int add_to_archive(char* fname, int o_file, int depth, char* true_name)	//Доб
 		for (int i=0; i<BLOCK_SIZE-count; i++)	//Дописываем блок до BLOCK_SIZE байт
 			write(o_file, &a, 1);
 	}
+	close(i_file);
 	return 0;
 }

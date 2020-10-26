@@ -21,9 +21,10 @@ int unpack_archive(char* fname, char* dir, int depth)	//Распаковывае
 	if (directory==NULL)
 	{
 		//Создадим папку
-		if (mkdir(dir, S_IRWXU|S_IRWXU|S_IRWXO)==-1)
+		if (mkdir(dir, S_IRWXU|S_IRWXG|S_IRWXO)==-1)
 		{
 			printf("Не удается открыть/создать папку %s", dir);
+			close(i_file);
 			return 2;
 		}
 	}
@@ -60,9 +61,11 @@ int unpack_archive(char* fname, char* dir, int depth)	//Распаковывае
 		else
 		{
 			printf("Ошибка архива - несовпадение глубин\n");
+			close(i_file);
 			return 3;
 		}
 	}
+	close(i_file);
 	chdir("..");	//Возвращаемся на уровень выше
 	return 0;
 }
