@@ -74,7 +74,7 @@ int unpack_archive(char* fname, char* dir, int depth)	//Распаковывае
 int unpack_file(int i_file, unsigned long i_size, char *true_name)
 {
 	char i_block[BLOCK_SIZE];
-	int n_file=open(true_name, O_CREAT|O_WRONLY, 00666);	//Создание файла
+	int n_file=open(true_name, O_CREAT|O_WRONLY, PERMISSION);	//Создание файла
 	if (n_file==-1)
 		printf("ERROOOOOR");
 	printf("Распаковка %s\n", true_name);

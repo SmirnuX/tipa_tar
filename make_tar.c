@@ -10,9 +10,10 @@
 #include <errno.h>
 
 
-int make_archive(char* fname, char* dir, int depth)	//Архивирует файлы из папки dir в архив fname уровня depth
+int make_archive(char* fname, char* dir, int depth)	
+//Архивирует файлы из папки dir в архив fname уровня depth
 {
-	int o_file=open(fname, O_CREAT|O_WRONLY, 00666);
+	int o_file=open(fname, O_CREAT|O_WRONLY, PERMISSION);
 	if (o_file==-1)
 	{
 		printf("Не получается создать архив: %s", fname);
